@@ -1,4 +1,4 @@
-name: Inspect decoded pantyhose UV regions
+name: Inspect pantyhose material regions and topology
 on:
   push:
     paths:
@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
 jobs:
-  uv:
+  inspect:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,50 +16,58 @@ jobs:
           unzip -q source.zip -d source
           curl -fL "https://raw.githubusercontent.com/iiishop/Vam2UE5/df0c9b95c25b36dc709f7653950d1487eb26978c/Scripts/vam_decode.py" -o vam_decode.py
           python -m pip install numpy
-          cat > inspect_uv.py <<'PY'
+          cat > inspect_regions.py <<'PY'
           import json,pathlib,sys,collections
           sys.path.insert(0,'.')
           import vam_decode
           root=pathlib.Path('source/Custom/Clothing/Female/Aspirant/Pantyhose')
           vam=json.loads((root/'Pantyhose.vam').read_text())
           vaj=json.loads((root/'Pantyhose.vaj').read_text())
-          raw=(root/'Pantyhose.vab').read_bytes()
-          ir=vam_decode.decode_vab(raw,vam,vaj)
-          pathlib.Path('ir_dump.json').write_text(json.dumps(ir))
-          mesh=ir['meshes'][0]
-          print('VERTEX_SAMPLE',mesh['vertices'][:5])
-          print('POLYGON_SAMPLE',mesh['polygons'][:5])
-          print('UV_POLYGON_SAMPLE',mesh['uv_polygons'][:5])
-          print('UV_MAP_TYPE',type(mesh['uv_map']).__name__)
-          print('UV_MAP_SAMPLE',str(mesh['uv_map'])[:1200])
-          print('MATERIALS',mesh['materials'])
-          verts=mesh['vertices']
-          for axis,name in enumerate(('x','y','z')):
-              vals=[v[axis] for v in verts]
-              print('AXIS',name,'MIN',min(vals),'MAX',max(vals))
-          print('POLYGON_COUNT',len(mesh['polygons']),'UV_POLYGON_COUNT',len(mesh['uv_polygons']))
-          def walk(x,path=''):
-              if isinstance(x,dict):
-                  if 'vertices' in x and ('uvs' in x or 'uv' in x):
-                      print('MESH',path,'keys',list(x.keys()))
-                      vs=x.get('vertices',[]); uvs=x.get('uvs',x.get('uv',[]))
-                      print('COUNTS',len(vs),len(uvs))
-                      if uvs:
-                          print('UV_BOUNDS',min(p[0] for p in uvs),max(p[0] for p in uvs),min(p[1] for p in uvs),max(p[1] for p in uvs))
-                          bins=[[0]*16 for _ in range(16)]
-                          for u,v in uvs:
-                              ix=max(0,min(15,int(u*16))); iy=max(0,min(15,int(v*16)))
-                              bins[15-iy][ix]+=1
-                          print('UV_GRID')
-                          for row in bins: print(' '.join(f'{v:4d}' for v in row))
-                  for k,v in x.items(): walk(v,path+'/'+str(k))
-              elif isinstance(x,list):
-                  for i,v in enumerate(x): walk(v,path+f'/{i}')
-          walk(ir)
+          mesh=vam_decode.decode_vab((root/'Pantyhose.vab').read_bytes(),vam,vaj)['meshes'][0]
+          verts=mesh['vertices']; faces=mesh['polygons']; mats=mesh['materials']
+          def bounds(ids):
+              pts=[verts[i] for i in ids]
+              return [[round(min(p[a] for p in pts),5),round(max(p[a] for p in pts),5)] for a in range(3)] if pts else None
+          report=[]
+          print('VERTICES',len(verts),'FACES',len(faces),'MATERIALS',mats)
+          for mi,name in enumerate(mats):
+              fs=[(fi,f['vertices']) for fi,f in enumerate(faces) if f['materialNum']==mi]
+              ids=sorted({v for _,f in fs for v in f})
+              ys=[verts[i][1] for i in ids]
+              bins=collections.Counter(min(11,max(0,int((y+0.005)/1.205*12))) for y in ys)
+              print('MATERIAL',mi,name,'faces',len(fs),'vertices',len(ids),'xyz_bounds',bounds(ids),'y_bins',dict(sorted(bins.items())))
+              # Face connected components, based on shared mesh vertices
+              v2f=collections.defaultdict(list)
+              for local,(_,f) in enumerate(fs):
+                  for v in f: v2f[v].append(local)
+              unseen=set(range(len(fs))); comps=[]
+              while unseen:
+                  seed=unseen.pop(); stack=[seed]; comp=[seed]
+                  while stack:
+                      cur=stack.pop()
+                      for v in fs[cur][1]:
+                          for nb in v2f[v]:
+                              if nb in unseen:
+                                  unseen.remove(nb); stack.append(nb); comp.append(nb)
+                  comps.append(comp)
+              comps.sort(key=len,reverse=True)
+              print('  COMPONENTS',[(len(c),bounds(sorted({v for j in c for v in fs[j][1]}))) for c in comps[:12]])
+              report.append((mi,name,fs))
+          # Export one OBJ with distinct object groups by material for independent inspection.
+          with open('material-regions.obj','w') as out:
+              for v in verts: out.write('v %.7f %.7f %.7f\\n'%tuple(v))
+              for uv in mesh['uv']: out.write('vt %.7f %.7f\\n'%tuple(uv))
+              for mi,name,fs in report:
+                  out.write('g '+''.join(c if c.isalnum() else '_' for c in name)+'\\n')
+                  for _,face in fs:
+                      # UV polygon indices use the same indexing scheme in this mesh.
+                      out.write('f '+' '.join(str(i+1) for i in face)+'\\n')
           PY
-          python inspect_uv.py | tee uv-report.txt
+          python inspect_regions.py | tee material-region-report.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: pantyhose-uv-report
-          path: uv-report.txt
+          name: pantyhose-material-region-analysis
+          path: |
+            material-region-report.txt
+            material-regions.obj
           retention-days: 7
