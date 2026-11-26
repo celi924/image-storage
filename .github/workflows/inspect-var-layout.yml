@@ -1,0 +1,21 @@
+name: Inspect VaM package layout
+on:
+  push:
+    paths:
+      - ".github/workflows/inspect-var-layout.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fL "https://github.com/celi924/image-storage/releases/download/reference-v1/Aspirant.Pantyhose.1.zip" -o source.zip
+          python - <<'PY'
+          import zipfile
+          z=zipfile.ZipFile("source.zip")
+          for n in z.namelist():
+              if n.endswith((".vam",".vaj",".vab","meta.json",".vap")) or "Custom/Clothing" in n:
+                  print(n, z.getinfo(n).file_size)
+          PY
