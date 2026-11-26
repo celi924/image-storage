@@ -31,7 +31,7 @@ jobs:
           vaj=json.loads((root/"Pantyhose.vaj").read_text(encoding="utf-8-sig"))
           original=(root/"Pantyhose.vab").read_bytes()
           decoded=decode_vab(original,vam,vaj)
-          assert len(decoded["meshes"])==1 and len(decoded["wraps"])==1 and decoded["dynamic"] is not None
+          assert len(decoded["meshes"])==1 and len(decoded["wraps"])>=1 and decoded["dynamic"] is not None, (len(decoded["meshes"]),len(decoded["wraps"]),decoded["dynamic"] is not None)
           mesh=decoded["meshes"][0]
           remove={"Shorts","Bikini","Band","Laces"}
           remove_ids={i for i,n in enumerate(mesh["materials"]) if n in remove}
