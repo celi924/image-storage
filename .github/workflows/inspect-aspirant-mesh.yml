@@ -13,44 +13,65 @@ jobs:
   inspect-mesh:
     runs-on: ubuntu-latest
     steps:
+      - name: Install diagnostics
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y file xxd binutils p7zip-full
       - name: Download source archive
         run: |
           curl -fL "https://github.com/celi924/image-storage/releases/download/reference-v1/Aspirant.Pantyhose.1.zip" -o source.zip
           unzip -q source.zip -d source
-      - name: Inspect Unity asset bundle meshes
+      - name: Identify VaM asset container and metadata
+        run: |
+          echo "=== FILE INVENTORY ==="
+          find source -type f -printf '%p %s bytes\n' | sort
+          echo "=== VAB FORMAT ==="
+          VAB="$(find source -type f -iname 'Pantyhose.vab' | head -1)"
+          if [ -n "$VAB" ]; then
+            file "$VAB"
+            stat "$VAB"
+            echo "--- first 256 bytes ---"
+            xxd -l 256 "$VAB"
+            echo "--- printable strings ---"
+            strings -a -n 5 "$VAB" | head -160
+            echo "--- archive probe ---"
+            7z l "$VAB" || true
+          fi
+          echo "=== VAM / VAJ / META TEXT ==="
+          find source -type f \( -iname '*.vam' -o -iname '*.vaj' -o -iname 'meta.json' \) -print -exec sh -c 'echo "--- $1"; file "$1"; head -c 12000 "$1"; echo' _ {} \;
+      - name: Probe UnityPy loading and object counts
         run: |
           python -m pip install --quiet UnityPy
           cat > mesh_probe.py <<'PY'
-          import os, json, UnityPy
+          import os, UnityPy, traceback
+          candidates=[]
           for root, dirs, files in os.walk("source"):
               for name in files:
-                  path=os.path.join(root,name)
-                  try:
-                      env=UnityPy.load(path)
-                  except Exception:
-                      continue
-                  print("\\n=== ASSET FILE:", path, "===")
+                  if name.lower().endswith((".vab",".assets",".assetbundle",".bundle")):
+                      candidates.append(os.path.join(root,name))
+          for path in candidates:
+              print("\\n=== UNITYPY:",path,"===")
+              try:
+                  env=UnityPy.load(path)
+                  print("OBJECT_COUNT",len(env.objects))
+                  counts={}
                   for obj in env.objects:
-                      try:
-                          data=obj.read()
-                          typ=obj.type.name
-                          if typ == "Mesh":
-                              print("MESH", json.dumps({
-                                  "name": getattr(data,"m_Name",""),
-                                  "vertices": len(getattr(data,"m_Vertices",[]) or []),
-                                  "submeshes": len(getattr(data,"m_SubMeshes",[]) or []),
-                                  "indexFormat": str(getattr(data,"m_IndexFormat","")),
-                                  "bounds": str(getattr(data,"m_LocalAABB",""))
-                              }, default=str))
-                          elif typ in ("SkinnedMeshRenderer","MeshRenderer","MeshFilter","Material","Texture2D"):
-                              print(typ, json.dumps({"name":getattr(data,"m_Name",""),"mesh":str(getattr(data,"m_Mesh","")),"materials":str(getattr(data,"m_Materials",""))[:500]},default=str))
-                      except Exception as e:
-                          print("OBJECT_ERROR",obj.type.name,str(e)[:200])
+                      typ=obj.type.name
+                      counts[typ]=counts.get(typ,0)+1
+                      if typ in ("Mesh","SkinnedMeshRenderer","MeshRenderer","MeshFilter","Material","Texture2D"):
+                          try:
+                              d=obj.read()
+                              print("OBJECT",typ,"name=",getattr(d,"m_Name",""),"path_id=",obj.path_id)
+                          except Exception as e: print("READ_ERROR",typ,repr(e))
+                  print("TYPE_COUNTS",counts)
+              except Exception as e:
+                  print("LOAD_ERROR",repr(e))
+                  traceback.print_exc(limit=2)
           PY
           python mesh_probe.py | tee mesh-report.txt
-      - name: Upload mesh inspection report
+      - name: Upload diagnostics
         uses: actions/upload-artifact@v4
         with:
-          name: aspirant-mesh-inspection
+          name: aspirant-vab-format-diagnostics
           path: mesh-report.txt
           retention-days: 1
