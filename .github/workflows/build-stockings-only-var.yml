@@ -31,7 +31,7 @@ jobs:
           vaj=json.loads((root/"Pantyhose.vaj").read_text(encoding="utf-8-sig"))
           original=(root/"Pantyhose.vab").read_bytes()
           decoded=decode_vab(original,vam,vaj)
-          assert len(decoded["meshes"])==1 and len(decoded["wraps"])>=1 and decoded["dynamic"] is not None, (len(decoded["meshes"]),len(decoded["wraps"]),decoded["dynamic"] is not None)
+          assert len(decoded["meshes"])==1 and len(decoded["wraps"])>=1
           mesh=decoded["meshes"][0]
           remove={"Shorts","Bikini","Band","Laces"}
           remove_ids={i for i,n in enumerate(mesh["materials"]) if n in remove}
@@ -95,14 +95,14 @@ jobs:
               elif typ=="DAZSkinWrap": out+=write_wrap(decoded["wraps"][wi]); wi+=1
               elif typ=="DAZSkinWrapMaterialOptions": out+=write_options(decoded["material_options"][oi]); oi+=1
               else: raise RuntimeError("Unsupported component "+typ)
-          out+=b"\\x01"+write_cloth(decoded["dynamic"]["cloth"])
+          out+=b"\\x01"+write_cloth(decoded["dynamic"]["cloth"]) if decoded["dynamic"] is not None else b"\\x00"
           rebuilt=bytes(out)
           check=decode_vab(rebuilt,vam,vaj)
           cm=check["meshes"][0]
           assert len(cm["polygons"])==len(keep)
           assert len(cm["vertices"])==len(mesh["vertices"]) and len(cm["uv"])==len(mesh["uv"])
           assert len(check["wraps"][0]["vertices"])==len(decoded["wraps"][0]["vertices"])
-          assert check["dynamic"]["cloth"]==decoded["dynamic"]["cloth"]
+          assert check["dynamic"]==decoded["dynamic"]
           assert all(cm["materials"][p["materialNum"]] not in remove for p in cm["polygons"])
           (root/"Pantyhose.vab").write_bytes(rebuilt)
           print("SOURCE_FACES",5434,"OUTPUT_FACES",len(cm["polygons"]))
