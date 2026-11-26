@@ -1,0 +1,26 @@
+name: Inspect VaM metadata and clothing preset schema
+on:
+  push:
+    paths:
+      - ".github/workflows/inspect-var-meta.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fL "https://github.com/celi924/image-storage/releases/download/reference-v1/Aspirant.Pantyhose.1.zip" -o source.zip
+          python - <<'PY'
+          import zipfile,json
+          z=zipfile.ZipFile("source.zip")
+          for n in ["meta.json","Custom/Clothing/Female/Aspirant/Pantyhose/Pantyhose.vam","Custom/Clothing/Female/Aspirant/Pantyhose/Pantyhose.vaj","Custom/Clothing/Female/Aspirant/Pantyhose/Pantyhose_Open Front and Back.vap"]:
+              print("\\nFILE",n)
+              b=z.read(n)
+              try:
+                  d=json.loads(b.decode("utf-8-sig"))
+                  print(json.dumps(d,indent=2)[:10000])
+              except Exception:
+                  print(b.decode("utf-8-sig")[:10000])
+          PY
