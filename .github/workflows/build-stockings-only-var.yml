@@ -134,3 +134,5 @@ jobs:
             Aspirant.StockingsOnly.1.var
             build-report.txt
           retention-days: 7
+
+# Re-run after correcting the DAZMesh polygon-count serialization.
