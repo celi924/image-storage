@@ -38,13 +38,13 @@ jobs:
               if p.is_file():
                   try:
                       im = Image.open(p).convert("RGB")
-                      im.thumbnail((112, 140))
+                      im.thumbnail((250, 310))
                       files.append((p.name, im.copy()))
                   except Exception:
                       pass
           if not files:
               raise SystemExit("No previewable images found in the archive")
-          cell_w, cell_h, label_h = 122, 168, 28
+          cell_w, cell_h, label_h = 266, 342, 32
           cols = 3
           rows = (len(files) + cols - 1) // cols
           sheet = Image.new("RGB", (cols * cell_w, rows * cell_h), "white")
@@ -56,7 +56,7 @@ jobs:
               sheet.paste(tile, (x, y))
               draw.text((x+8, y+cell_h-label_h+8), name[:52], fill="black")
           buf = io.BytesIO()
-          sheet.save(buf, format="JPEG", quality=32, optimize=True)
+          sheet.save(buf, format="JPEG", quality=72, optimize=True)
           encoded = base64.b64encode(buf.getvalue()).decode("ascii")
           print("REFERENCE_PREVIEW_BASE64=" + encoded)
           summary = (
