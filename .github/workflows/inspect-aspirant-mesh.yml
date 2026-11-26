@@ -20,7 +20,7 @@ jobs:
       - name: Inspect Unity asset bundle meshes
         run: |
           python -m pip install --quiet UnityPy
-          cat > inspect.py <<'PY'
+          cat > mesh_probe.py <<'PY'
           import os, json, UnityPy
           for root, dirs, files in os.walk("source"):
               for name in files:
@@ -47,7 +47,7 @@ jobs:
                       except Exception as e:
                           print("OBJECT_ERROR",obj.type.name,str(e)[:200])
           PY
-          python inspect.py | tee mesh-report.txt
+          python mesh_probe.py | tee mesh-report.txt
       - name: Upload mesh inspection report
         uses: actions/upload-artifact@v4
         with:
