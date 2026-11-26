@@ -69,8 +69,8 @@ jobs:
               for k in ("nodeId","sceneNodeId","geometryId","sceneGeometryId"): b+=string(m["names"][k])
               b+=arr(m["vertices"],"fff")
               b+=i32(len(m["materials"]))+b"".join(string(x) for x in m["materials"])
+              b+=i32(len(m["polygons"]))
               for polys in (m["polygons"],m["uv_polygons"]):
-                  b+=i32(len(polys))
                   for p in polys: b+=i32(p["materialNum"])+i32(len(p["vertices"]))+arr(p["vertices"],"i")[4:]
               b+=arr(m["uv"],"ff")
               b+=arr([[v["fromvert"],v["tovert"],v["polyindex"]] for v in m["uv_map"]],"iii")
