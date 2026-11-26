@@ -1,6 +1,9 @@
 name: Export image files
 
 on:
+  push:
+    paths:
+      - '.github/workflows/export-images.yml'
   workflow_dispatch:
 
 permissions:
