@@ -1,0 +1,41 @@
+name: Inspect Aspirant presets
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/inspect-aspirant-presets.yml"
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download and inspect source presets
+        run: |
+          curl -fLsS "https://github.com/celi924/image-storage/releases/download/reference-v1/Aspirant.Pantyhose.1.zip" -o source.zip
+          python - <<'PY'
+          import zipfile, json, pathlib
+          z=zipfile.ZipFile('source.zip')
+          names=z.namelist()
+          for n in names:
+              if n.lower().endswith(('.vap','.vam','.vaj')):
+                  print("\\nFILE",n)
+                  raw=z.read(n)
+                  try:
+                      d=json.loads(raw.decode('utf-8-sig'))
+                      print("TOP_KEYS",list(d)[:80])
+                      if n.lower().endswith('.vap'):
+                          for k,v in d.items():
+                              if isinstance(v,(str,int,float,bool)) or v is None:
+                                  print("FIELD",k,repr(v)[:300])
+                              elif isinstance(v,list):
+                                  print("LIST",k,"len",len(v),"sample",repr(v[:2])[:700])
+                              elif isinstance(v,dict):
+                                  print("DICT",k,"keys",list(v)[:60])
+                      else:
+                          for k,v in d.items():
+                              if isinstance(v,(str,int,float,bool)) or v is None: print("FIELD",k,repr(v)[:300])
+                              elif isinstance(v,list): print("LIST",k,"len",len(v),"sample",repr(v[:2])[:700])
+                              elif isinstance(v,dict): print("DICT",k,"keys",list(v)[:80])
+                  except Exception as e: print("JSON_ERROR",e,raw[:120])
+          PY
