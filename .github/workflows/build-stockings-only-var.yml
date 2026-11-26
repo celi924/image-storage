@@ -1,4 +1,4 @@
-name: Build stockings-only VaM package
+name: Build basic plain-color stockings VaM package
 
 on:
   workflow_dispatch:
@@ -13,126 +13,62 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Download source and decoder
+      - name: Download original full-geometry reference package
         run: |
           set -euo pipefail
           curl -fL "https://github.com/celi924/image-storage/releases/download/reference-v1/Aspirant.Pantyhose.1.zip" -o source.zip
           unzip -q source.zip -d source
-          curl -fL "https://raw.githubusercontent.com/iiishop/Vam2UE5/df0c9b95c25b36dc709f7653950d1487eb26978c/Scripts/vam_decode.py" -o vam_decode.py
-      - name: Remove underwear-only mesh sections and rebuild VAB
+      - name: Build full-coverage plain-color baseline without deleting mesh
         run: |
           set -euo pipefail
-          cat > build_var.py <<'PY'
-          import json, pathlib, struct, zipfile, hashlib
-          from vam_decode import decode_vab, validate_mesh
-
+          python - <<'PY'
+          import json, pathlib, zipfile, hashlib
           root=pathlib.Path("source/Custom/Clothing/Female/Aspirant/Pantyhose")
-          vam=json.loads((root/"Pantyhose.vam").read_text(encoding="utf-8-sig"))
-          vaj=json.loads((root/"Pantyhose.vaj").read_text(encoding="utf-8-sig"))
-          original=(root/"Pantyhose.vab").read_bytes()
-          decoded=decode_vab(original,vam,vaj)
-          assert len(decoded["meshes"])==1 and len(decoded["wraps"])>=1
-          mesh=decoded["meshes"][0]
-          remove={"Shorts","Bikini","Band","Laces"}
-          remove_ids={i for i,n in enumerate(mesh["materials"]) if n in remove}
-          assert remove_ids=={3,4,5,6}, (mesh["materials"],remove_ids)
-          keep=[i for i,p in enumerate(mesh["polygons"]) if p["materialNum"] not in remove_ids]
-          assert len(keep)>0
-          old_to_new={old:new for new,old in enumerate(keep)}
-          mesh["polygons"]=[mesh["polygons"][i] for i in keep]
-          mesh["uv_polygons"]=[mesh["uv_polygons"][i] for i in keep]
-          # Keep the complete original UV/skin-wrap/cloth vertex domains. Repoint each
-          # UV-map polygon reference to a surviving face sharing its source vertex.
-          by_vertex={}
-          for ni,p in enumerate(mesh["polygons"]):
-              for v in set(p["vertices"]): by_vertex.setdefault(v,ni)
-          fallback=0
-          mesh["uv_map"]=[dict(v,polyindex=old_to_new[v["polyindex"]] if v["polyindex"] in old_to_new else by_vertex.get(v["fromvert"],fallback)) for v in mesh["uv_map"]]
-          validate_mesh(mesh)
-          kept_names=[mesh["materials"][mesh["polygons"][i]["materialNum"]] for i in range(len(mesh["polygons"]))]
-          assert not (set(kept_names)&remove)
-          
-          def s7(n):
-              out=bytearray()
-              while n>=128:
-                  out.append((n&127)|128); n >>= 7
-              out.append(n); return bytes(out)
-          def string(s):
-              b=s.encode("utf-8"); return s7(len(b))+b
-          def i32(n): return struct.pack("<i",int(n))
-          def f32(n): return struct.pack("<f",float(n))
-          def arr(items,fmt):
-              return i32(len(items))+b"".join(struct.pack("<"+fmt,*x) if isinstance(x,(list,tuple)) else struct.pack("<"+fmt,x) for x in items)
-          def header(name,version="1.0"): return string(name)+string(version)
-          def write_mesh(m):
-              b=bytearray(header("DAZMesh"))
-              for k in ("nodeId","sceneNodeId","geometryId","sceneGeometryId"): b+=string(m["names"][k])
-              b+=arr(m["vertices"],"fff")
-              b+=i32(len(m["materials"]))+b"".join(string(x) for x in m["materials"])
-              b+=i32(len(m["polygons"]))
-              for polys in (m["polygons"],m["uv_polygons"]):
-                  for p in polys: b+=i32(p["materialNum"])+i32(len(p["vertices"]))+arr(p["vertices"],"i")[4:]
-              b+=arr(m["uv"],"ff")
-              b+=arr([[v["fromvert"],v["tovert"],v["polyindex"]] for v in m["uv_map"]],"iii")
-              return bytes(b)
-          def write_wrap(w):
-              return header("DAZSkinWrap")+string(w["name"])+header("DAZSkinWrapStore")+arr(w["vertices"],"iiiiffffff")
-          def write_options(o):
-              return header("MaterialOptions")+string(o["id"])+arr(o["slots"],"i")
-          def write_cloth(c):
-              b=bytearray(header("ClothGeometryData"))
-              for key,fmt in (("triangles","i"),("particles","fff"),("mesh_to_physics","i"),("physics_to_mesh","i")): b+=arr(c[key],fmt)
-              for key in ("joints","stiffness_joints","nearby_joints"):
-                  b+=i32(len(c[key]))
-                  for group in c[key]: b+=arr(group,"ii")
-              for key,fmt in (("neighbors","i"),("neighbor_counts","i"),("blend","f"),("strength","f")): b+=arr(c[key],fmt)
-              return bytes(b)
-          out=bytearray(header("DynamicStore"))
-          mi=wi=oi=0
-          for component in vaj["components"]:
-              typ=component["type"]
-              if typ=="DAZMesh": out+=write_mesh(decoded["meshes"][mi]); mi+=1
-              elif typ=="DAZSkinWrap": out+=write_wrap(decoded["wraps"][wi]); wi+=1
-              elif typ=="DAZSkinWrapMaterialOptions": out+=write_options(decoded["material_options"][oi]); oi+=1
-              else: raise RuntimeError("Unsupported component "+typ)
-          out+=b"\x01"+write_cloth(decoded["dynamic"]["cloth"]) if decoded["dynamic"] is not None else b"\x00"
-          rebuilt=bytes(out)
-          check=decode_vab(rebuilt,vam,vaj)
-          cm=check["meshes"][0]
-          assert len(cm["polygons"])==len(keep)
-          assert len(cm["vertices"])==len(mesh["vertices"]) and len(cm["uv"])==len(mesh["uv"])
-          assert len(check["wraps"][0]["vertices"])==len(decoded["wraps"][0]["vertices"])
-          assert check["dynamic"]==decoded["dynamic"]
-          assert all(cm["materials"][p["materialNum"]] not in remove for p in cm["polygons"])
-          (root/"Pantyhose.vab").write_bytes(rebuilt)
-          print("SOURCE_FACES",5434,"OUTPUT_FACES",len(cm["polygons"]))
-          print("REMOVED_MATERIALS",",".join(sorted(remove)))
-          print("KEPT_MATERIAL_FACE_COUNTS",json.dumps({n:sum(p["materialNum"]==i for p in cm["polygons"]) for i,n in enumerate(cm["materials"])},sort_keys=True))
-          print("VERTEX_UV_WRAP_CLOTH_DOMAINS_PRESERVED",len(cm["vertices"]),len(cm["uv"]),len(check["wraps"][0]["vertices"]))
-          print("OUTPUT_VAB_SHA256",hashlib.sha256(rebuilt).hexdigest())
-          # Keep original metadata, changing only the package identity.
+          vam_path=root/"Pantyhose.vam"
+          vaj_path=root/"Pantyhose.vaj"
+          vab_path=root/"Pantyhose.vab"
+          original_vab=vab_path.read_bytes()
+          vam=json.loads(vam_path.read_text(encoding="utf-8-sig"))
+          vaj=json.loads(vaj_path.read_text(encoding="utf-8-sig"))
+          assert vam.get("itemType")=="ClothingFemale", vam.get("itemType")
+          assert len(original_vab)>100000
+          assert any(c.get("type")=="DAZMesh" for c in vaj.get("components",[]))
+          # The base preset already uses a single diffuse color and no diffuse/pattern texture.
+          preset_path=root/"Pantyhose_Default.vap"
+          preset=json.loads(preset_path.read_text(encoding="utf-8-sig"))
+          material=next(s for s in preset["storables"] if s.get("id")=="PantyhoseMaterialCombined")
+          assert material.get("customTexture_MainTex","")=="" 
+          assert material.get("customTexture_DecalTex","")==""
+          assert material.get("customTexture_BumpMap","")==""
+          alpha=material.get("customTexture_AlphaTex","")
+          assert alpha.endswith("3_pantyhose_tr.jpg"), alpha
+          # Preserve the complete original mesh, SkinWrap, UVs, and all vertex groups byte-for-byte.
+          assert vab_path.read_bytes()==original_vab
+          # Give the basic plain-color preset a clear name while keeping the original base color and alpha coverage.
+          preset_path.rename(root/"Pantyhose_Basic_Plain.vap")
           meta_path=pathlib.Path("source/meta.json")
           meta=json.loads(meta_path.read_text(encoding="utf-8-sig"))
-          meta["packageName"]="StockingsOnly"
+          meta["packageName"]="StockingsBasic"
+          # Keep original creator/license fields and the full original content; do not publish altered geometry.
           meta_path.write_text(json.dumps(meta,ensure_ascii=False,indent=2),encoding="utf-8")
-          with zipfile.ZipFile("Aspirant.StockingsOnly.1.var","w",zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+          with zipfile.ZipFile("Aspirant.StockingsBasic.1.var","w",zipfile.ZIP_DEFLATED,compresslevel=6) as z:
               for p in pathlib.Path("source").rglob("*"):
                   if p.is_file(): z.write(p,p.relative_to("source").as_posix())
-          with zipfile.ZipFile("Aspirant.StockingsOnly.1.var") as z:
+          with zipfile.ZipFile("Aspirant.StockingsBasic.1.var") as z:
               assert "meta.json" in z.namelist()
               assert "Custom/Clothing/Female/Aspirant/Pantyhose/Pantyhose.vab" in z.namelist()
-              z.testzip()
-          print("VAR_BYTES",pathlib.Path("Aspirant.StockingsOnly.1.var").stat().st_size)
-          print("VAR_SHA256",hashlib.sha256(pathlib.Path("Aspirant.StockingsOnly.1.var").read_bytes()).hexdigest())
+              assert "Custom/Clothing/Female/Aspirant/Pantyhose/Pantyhose_Basic_Plain.vap" in z.namelist()
+              assert z.testzip() is None
+          print("FULL_ORIGINAL_VAB_PRESERVED",len(original_vab),hashlib.sha256(original_vab).hexdigest())
+          print("BASIC_PRESET_ALPHA_MASK",alpha)
+          print("DIFFUSE_COLOR",json.dumps(material.get("Diffuse Color"),sort_keys=True))
+          print("NO_DIFFUSE_PATTERN_TEXTURE",True)
+          print("VAR_BYTES",pathlib.Path("Aspirant.StockingsBasic.1.var").stat().st_size)
+          print("VAR_SHA256",hashlib.sha256(pathlib.Path("Aspirant.StockingsBasic.1.var").read_bytes()).hexdigest())
           PY
-          python build_var.py | tee build-report.txt
-      - name: Upload installable package
+      - name: Upload basic baseline package
         uses: actions/upload-artifact@v4
         with:
-          name: Aspirant-StockingsOnly-VaM-var
-          path: |
-            Aspirant.StockingsOnly.1.var
-            build-report.txt
+          name: Aspirant-StockingsBasic-VaM-var
+          path: Aspirant.StockingsBasic.1.var
           retention-days: 7
-
-# Re-run after correcting the DAZMesh polygon-count serialization.
