@@ -1,4 +1,4 @@
-name: Inspect Aspirant presets
+name: Inspect Aspirant preset parameters
 on:
   push:
     paths:
@@ -9,25 +9,23 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
-      - name: Download and inspect source presets
+      - name: Dump relevant preset controls and wrap records
         run: |
           curl -fLsS "https://github.com/celi924/image-storage/releases/download/reference-v1/Aspirant.Pantyhose.1.zip" -o source.zip
           python - <<'PY'
-          import zipfile, json
+          import zipfile,json
           z=zipfile.ZipFile('source.zip')
           for n in z.namelist():
-              if n.lower().endswith(('.vap','.vam','.vaj')):
-                  raw=z.read(n)
-                  try:
-                      d=json.loads(raw.decode('utf-8-sig'))
-                  except Exception as e:
-                      print("JSON_ERROR",n,e); continue
-                  print("\\nFILE",n,"TOP_KEYS",list(d)[:80])
-                  for k,v in d.items():
-                      if isinstance(v,(str,int,float,bool)) or v is None:
-                          print("FIELD",k,repr(v)[:250])
-                      elif isinstance(v,list):
-                          print("LIST",k,"len",len(v),"sample",repr(v[:2])[:500])
-                      elif isinstance(v,dict):
-                          print("DICT",k,"keys",list(v)[:80])
+              if n.endswith('.vap') and ('Open Buttocks' in n or 'Open Front and Back' in n or 'Default' in n):
+                  d=json.loads(z.read(n).decode('utf-8-sig'))
+                  print('PRESET',n)
+                  for s in d.get('storables',[]):
+                      print(json.dumps(s,ensure_ascii=False,sort_keys=True))
+          for n in z.namelist():
+              if n.endswith('Pantyhose.vaj'):
+                  d=json.loads(z.read(n).decode('utf-8-sig'))
+                  print('VAJ_COMPONENTS')
+                  for c in d.get('components',[]): print(json.dumps(c,ensure_ascii=False)[:5000])
+                  print('VAJ_STORABLES')
+                  for s in d.get('storables',[]): print(json.dumps(s,ensure_ascii=False)[:5000])
           PY
