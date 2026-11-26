@@ -1,0 +1,55 @@
+name: Decode Aspirant clothing geometry
+
+on:
+  push:
+    paths:
+      - ".github/workflows/decode-aspirant-clothing.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  decode:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download reference package and decoder
+        run: |
+          curl -fL "https://github.com/celi924/image-storage/releases/download/reference-v1/Aspirant.Pantyhose.1.zip" -o source.zip
+          unzip -q source.zip -d source
+          curl -fL "https://raw.githubusercontent.com/iiishop/Vam2UE5/df0c9b95c25b36dc709f7653950d1487eb26978c/Scripts/vam_decode.py" -o vam_decode.py
+      - name: Decode DAZMesh and export inspection geometry
+        run: |
+          cat > decode_clothing.py <<'PY'
+          import json, pathlib, hashlib
+          from vam_decode import decode_vab
+          root=pathlib.Path("source/Custom/Clothing/Female/Aspirant/Pantyhose")
+          vam=json.loads((root/"Pantyhose.vam").read_text(encoding="utf-8-sig"))
+          vaj=json.loads((root/"Pantyhose.vaj").read_text(encoding="utf-8-sig"))
+          raw=(root/"Pantyhose.vab").read_bytes()
+          decoded=decode_vab(raw,vam,vaj)
+          assert decoded["meshes"], "No DAZMesh geometry decoded"
+          out=pathlib.Path("decoded"); out.mkdir(exist_ok=True)
+          (out/"mesh-ir.json").write_text(json.dumps(decoded,ensure_ascii=False,indent=2),encoding="utf-8")
+          for mi,mesh in enumerate(decoded["meshes"]):
+              path=out/f"pantyhose-{mi}.obj"
+              with path.open("w",encoding="utf-8") as f:
+                  f.write("# Decoded VaM DAZMesh; source topology retained\n")
+                  for x,y,z in mesh["vertices"]: f.write(f"v {x:.9g} {y:.9g} {z:.9g}\n")
+                  for u,v in mesh["uv"]: f.write(f"vt {u:.9g} {v:.9g}\n")
+                  for p in mesh["uv_polygons"]:
+                      ids=p["vertices"]
+                      f.write("f "+" ".join(f"{i+1}/{i+1}" for i in ids)+"\n")
+              print("MESH",mi,"vertices",len(mesh["vertices"]),"uv",len(mesh["uv"]),"polygons",len(mesh["polygons"]),"materials",mesh["materials"])
+          print("VAB_SHA256",hashlib.sha256(raw).hexdigest())
+          print("WRAPS",len(decoded["wraps"]),"DYNAMIC",decoded["dynamic"] is not None)
+          PY
+          python decode_clothing.py | tee decode-report.txt
+      - name: Upload decoded geometry
+        uses: actions/upload-artifact@v4
+        with:
+          name: aspirant-decoded-clothing-geometry
+          path: |
+            decoded/
+            decode-report.txt
+          retention-days: 7
