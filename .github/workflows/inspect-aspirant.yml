@@ -1,0 +1,33 @@
+name: Inspect VaM pantyhose source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/inspect-aspirant.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download original VaM clothing archive
+        run: |
+          curl -fL "https://github.com/celi924/image-storage/releases/download/reference-v1/Aspirant.Pantyhose.1.zip" -o Aspirant.Pantyhose.1.zip
+          sha256sum Aspirant.Pantyhose.1.zip
+          unzip -q Aspirant.Pantyhose.1.zip -d source
+      - name: List package contents and inspect text metadata
+        run: |
+          echo "=== FILE TREE ==="
+          find source -type f -printf '%P (%s bytes)\n' | sort
+          echo "=== TEXT / CONFIG FILES ==="
+          find source -type f \( -iname '*.vaj' -o -iname '*.json' -o -iname '*.vap' -o -iname '*.vam' -o -iname '*.txt' -o -iname '*.xml' -o -iname '*.cs' \) -print0 |
+          while IFS= read -r -d '' f; do
+            echo "--- $f ---"
+            sed -n '1,240p' "$f"
+          done
+          echo "=== PACKAGE STRUCTURE SUMMARY ==="
+          find source -type f | awk -F. '{print tolower($NF)}' | sort | uniq -c | sort -nr
