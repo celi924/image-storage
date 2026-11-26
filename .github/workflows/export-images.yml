@@ -2,6 +2,8 @@ name: Export image files
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -55,6 +57,7 @@ jobs:
           buf = io.BytesIO()
           sheet.save(buf, format="JPEG", quality=78, optimize=True)
           encoded = base64.b64encode(buf.getvalue()).decode("ascii")
+          print("REFERENCE_PREVIEW_BASE64=" + encoded)
           summary = (
               "# Temporary reference-image preview\n\n"
               f"Found {len(files)} image(s) in the real-world reference archive. "
