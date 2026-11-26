@@ -1,0 +1,53 @@
+name: Inspect decoded pantyhose UV regions
+on:
+  push:
+    paths:
+      - ".github/workflows/inspect-uv-regions.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  uv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          curl -fL "https://github.com/celi924/image-storage/releases/download/reference-v1/Aspirant.Pantyhose.1.zip" -o source.zip
+          unzip -q source.zip -d source
+          curl -fL "https://raw.githubusercontent.com/iiishop/Vam2UE5/df0c9b95c25b36dc709f7653950d1487eb26978c/Scripts/vam_decode.py" -o vam_decode.py
+          python -m pip install numpy
+          cat > inspect_uv.py <<'PY'
+          import json,pathlib,sys,collections
+          sys.path.insert(0,'.')
+          import vam_decode
+          root=pathlib.Path('source/Custom/Clothing/Female/Aspirant/Pantyhose')
+          vam=json.loads((root/'Pantyhose.vam').read_text())
+          vaj=json.loads((root/'Pantyhose.vaj').read_text())
+          raw=(root/'Pantyhose.vab').read_bytes()
+          ir=vam_decode.decode_vab(raw,vam,vaj)
+          pathlib.Path('ir_dump.json').write_text(json.dumps(ir))
+          def walk(x,path=''):
+              if isinstance(x,dict):
+                  if 'vertices' in x and ('uvs' in x or 'uv' in x):
+                      print('MESH',path,'keys',list(x.keys()))
+                      vs=x.get('vertices',[]); uvs=x.get('uvs',x.get('uv',[]))
+                      print('COUNTS',len(vs),len(uvs))
+                      if uvs:
+                          print('UV_BOUNDS',min(p[0] for p in uvs),max(p[0] for p in uvs),min(p[1] for p in uvs),max(p[1] for p in uvs))
+                          bins=[[0]*16 for _ in range(16)]
+                          for u,v in uvs:
+                              ix=max(0,min(15,int(u*16))); iy=max(0,min(15,int(v*16)))
+                              bins[15-iy][ix]+=1
+                          print('UV_GRID')
+                          for row in bins: print(' '.join(f'{v:4d}' for v in row))
+                  for k,v in x.items(): walk(v,path+'/'+str(k))
+              elif isinstance(x,list):
+                  for i,v in enumerate(x): walk(v,path+f'/{i}')
+          walk(ir)
+          PY
+          python inspect_uv.py | tee uv-report.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pantyhose-uv-report
+          path: uv-report.txt
+          retention-days: 7
