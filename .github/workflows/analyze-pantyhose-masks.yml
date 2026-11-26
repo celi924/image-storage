@@ -49,6 +49,26 @@ jobs:
           PY
           python analyze.py > texture-analysis.txt
           cat texture-analysis.txt
+      - name: Generate readable mask contact sheet
+        run: |
+          python - <<'PY'
+          from PIL import Image, ImageDraw
+          from pathlib import Path
+          import io,base64
+          root=Path("source/Custom/Clothing/Female/Aspirant/Pantyhose")
+          names=["3_pantyhose_tr.jpg","20_pantyhose_tr.jpg","21_pantyhose_tr.jpg","23_pantyhose_tr.jpg"]
+          w,h=520,560
+          sheet=Image.new("RGB",(w*2,h*2),"white")
+          draw=ImageDraw.Draw(sheet)
+          for i,n in enumerate(names):
+              im=Image.open(root/n).convert("RGB")
+              im.thumbnail((500,500))
+              x=(i%2)*w+10; y=(i//2)*h+35
+              sheet.paste(im,(x,y))
+              draw.text((x,y-24),n,fill="black")
+          b=io.BytesIO(); sheet.save(b,format="JPEG",quality=78)
+          print("MASK_SHEET_BASE64="+base64.b64encode(b.getvalue()).decode())
+          PY
       - name: Upload analysis
         uses: actions/upload-artifact@v4
         with:
