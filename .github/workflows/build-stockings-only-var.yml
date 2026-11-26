@@ -95,7 +95,7 @@ jobs:
               elif typ=="DAZSkinWrap": out+=write_wrap(decoded["wraps"][wi]); wi+=1
               elif typ=="DAZSkinWrapMaterialOptions": out+=write_options(decoded["material_options"][oi]); oi+=1
               else: raise RuntimeError("Unsupported component "+typ)
-          out+=b"\\x01"+write_cloth(decoded["dynamic"]["cloth"]) if decoded["dynamic"] is not None else b"\\x00"
+          out+=b"\x01"+write_cloth(decoded["dynamic"]["cloth"]) if decoded["dynamic"] is not None else b"\x00"
           rebuilt=bytes(out)
           check=decode_vab(rebuilt,vam,vaj)
           cm=check["meshes"][0]
