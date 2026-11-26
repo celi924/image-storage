@@ -12,11 +12,18 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-      - name: Package reference files
+      - name: Install 7-Zip
         run: |
-          mkdir -p export
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
+      - name: Package and extract reference files
+        run: |
+          mkdir -p export/real-world-reference
           cp 21_pantyhose_tr.jpg 23_pantyhose_tr.jpg ScreenShot_2026-11-26_193534_725.png ScreenShot_2026-11-26_193601_620.png ScreenShot_2026-11-26_211016_216.7z export/
-      - name: Upload archive
+          7z x ScreenShot_2026-11-26_211016_216.7z -oexport/real-world-reference -y
+          echo "Extracted reference files:"
+          find export/real-world-reference -type f -printf '%p (%s bytes)\n'
+      - name: Upload archive and extracted images
         uses: actions/upload-artifact@v4
         with:
           name: image-storage-reference-files
