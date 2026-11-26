@@ -12,10 +12,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-      - name: Install 7-Zip
+      - name: Install 7-Zip and image tools
         run: |
           sudo apt-get update
           sudo apt-get install -y p7zip-full
+          python -m pip install --quiet Pillow
       - name: Package and extract reference files
         run: |
           mkdir -p export/real-world-reference
@@ -23,6 +24,47 @@ jobs:
           7z x ScreenShot_2026-11-26_211016_216.7z -oexport/real-world-reference -y
           echo "Extracted reference files:"
           find export/real-world-reference -type f -printf '%p (%s bytes)\n'
+      - name: Create temporary public image preview
+        run: |
+          python - <<'PY'
+          from PIL import Image, ImageOps, ImageDraw
+          from pathlib import Path
+          import io, base64, html
+          files = []
+          for p in Path("export/real-world-reference").rglob("*"):
+              if p.is_file():
+                  try:
+                      im = Image.open(p).convert("RGB")
+                      im.thumbnail((360, 360))
+                      files.append((p.name, im.copy()))
+                  except Exception:
+                      pass
+          if not files:
+              raise SystemExit("No previewable images found in the archive")
+          cell_w, cell_h, label_h = 390, 410, 34
+          cols = 3
+          rows = (len(files) + cols - 1) // cols
+          sheet = Image.new("RGB", (cols * cell_w, rows * cell_h), "white")
+          draw = ImageDraw.Draw(sheet)
+          for i, (name, im) in enumerate(files):
+              x, y = (i % cols) * cell_w, (i // cols) * cell_h
+              tile = Image.new("RGB", (cell_w, cell_h), "#eeeeee")
+              tile.paste(im, ((cell_w-im.width)//2, (cell_h-label_h-im.height)//2))
+              sheet.paste(tile, (x, y))
+              draw.text((x+8, y+cell_h-label_h+8), name[:52], fill="black")
+          buf = io.BytesIO()
+          sheet.save(buf, format="JPEG", quality=78, optimize=True)
+          encoded = base64.b64encode(buf.getvalue()).decode("ascii")
+          summary = (
+              "# Temporary reference-image preview\n\n"
+              f"Found {len(files)} image(s) in the real-world reference archive. "
+              "This preview is embedded in this workflow run and is not committed to the repository.\n\n"
+              f'<img alt="Reference image contact sheet" src="data:image/jpeg;base64,{encoded}" />\n'
+          )
+          Path("/tmp/preview-summary.md").write_text(summary)
+          with open(__import__("os").environ["GITHUB_STEP_SUMMARY"], "a") as out:
+              out.write(summary)
+          PY
       - name: Upload archive and extracted images
         uses: actions/upload-artifact@v4
         with:
