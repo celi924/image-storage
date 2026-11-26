@@ -1,0 +1,57 @@
+name: Analyze pantyhose texture masks
+
+on:
+  push:
+    paths:
+      - ".github/workflows/analyze-pantyhose-masks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download and unpack source
+        run: |
+          curl -fL "https://github.com/celi924/image-storage/releases/download/reference-v1/Aspirant.Pantyhose.1.zip" -o source.zip
+          unzip -q source.zip -d source
+          python -m pip install pillow
+      - name: Analyze preset textures and UV coverage
+        run: |
+          cat > analyze.py <<'PY'
+          import json, pathlib, collections
+          from PIL import Image
+          root=pathlib.Path("source/Custom/Clothing/Female/Aspirant/Pantyhose")
+          for name in ["3_pantyhose_tr.jpg","20_pantyhose_tr.jpg","21_pantyhose_tr.jpg","23_pantyhose_tr.jpg"]:
+              p=root/name
+              if not p.exists():
+                  print("MISSING",name); continue
+              im=Image.open(p).convert("RGB")
+              print("\\nTEXTURE",name,"SIZE",im.size)
+              print("COLORS",collections.Counter(im.resize((128,128)).getdata()).most_common(8))
+              sm=im.convert("L").resize((64,64))
+              ramp=" .:-=+*#%@"
+              for y in range(64):
+                  print("".join(ramp[min(9,v*10//256)] for v in [sm.getpixel((x,y)) for x in range(64)]))
+          for preset in ["Pantyhose_Default.vap","Pantyhose_Open Buttocks.vap","Pantyhose_Open Front and Back.vap"]:
+              d=json.loads((root/preset).read_text(encoding="utf-8-sig"))
+              print("\\nPRESET",preset)
+              def walk(x):
+                  if isinstance(x,dict):
+                      for k,v in x.items():
+                          if "AlphaTex" in k or "Texture" in k: print("TEXTURE_REF",k,v)
+                          walk(v)
+                  elif isinstance(x,list):
+                      for v in x: walk(v)
+              walk(d)
+          PY
+          python analyze.py > texture-analysis.txt
+          cat texture-analysis.txt
+      - name: Upload analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: pantyhose-mask-analysis
+          path: texture-analysis.txt
+          retention-days: 7
