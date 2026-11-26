@@ -26,6 +26,18 @@ jobs:
           raw=(root/'Pantyhose.vab').read_bytes()
           ir=vam_decode.decode_vab(raw,vam,vaj)
           pathlib.Path('ir_dump.json').write_text(json.dumps(ir))
+          mesh=ir['meshes'][0]
+          print('VERTEX_SAMPLE',mesh['vertices'][:5])
+          print('POLYGON_SAMPLE',mesh['polygons'][:5])
+          print('UV_POLYGON_SAMPLE',mesh['uv_polygons'][:5])
+          print('UV_MAP_TYPE',type(mesh['uv_map']).__name__)
+          print('UV_MAP_SAMPLE',str(mesh['uv_map'])[:1200])
+          print('MATERIALS',mesh['materials'])
+          verts=mesh['vertices']
+          for axis,name in enumerate(('x','y','z')):
+              vals=[v[axis] for v in verts]
+              print('AXIS',name,'MIN',min(vals),'MAX',max(vals))
+          print('POLYGON_COUNT',len(mesh['polygons']),'UV_POLYGON_COUNT',len(mesh['uv_polygons']))
           def walk(x,path=''):
               if isinstance(x,dict):
                   if 'vertices' in x and ('uvs' in x or 'uv' in x):
