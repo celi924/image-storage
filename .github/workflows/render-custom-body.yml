@@ -19,7 +19,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y blender libegl1 libgl1-mesa-dri libxkbcommon0
-      - name: Test Blender Mask Extract API\n        run: |\n          blender -b -noaudio --python-exit-code 1 --python test_mask_extract_api.py\n      - name: Render orthographic inspection views
+      - name: Test Blender Mask Extract API
+        run: |
+          blender -b -noaudio --python-exit-code 1 --python test_mask_extract_api.py
+      - name: Render orthographic inspection views
         run: |
           blender -b -noaudio --python-exit-code 1 --python build_plain_pantyhose_shell.py
           echo "===== TOPOLOGY REPORT ====="
