@@ -27,3 +27,5 @@ jobs:
           name: custom-body-inspection-views
           path: inspection/
           retention-days: 7
+
+# rerun after inspection script commit
