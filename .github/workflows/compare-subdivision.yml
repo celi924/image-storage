@@ -1,0 +1,32 @@
+name: Compare Blender subdivision interpretations
+
+on:
+  push:
+    paths:
+      - "compare_subdivision_methods.py"
+      - ".github/workflows/compare-subdivision.yml"
+      - "femalecustom.obj"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Blender
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y blender libegl1 libgl1-mesa-dri libxkbcommon0
+      - name: Compare subdivision methods on separate copies
+        run: |
+          blender -b -noaudio --python-exit-code 1 --python compare_subdivision_methods.py
+          cat subdivision_comparison/report.json
+      - name: Upload comparison
+        uses: actions/upload-artifact@v4
+        with:
+          name: subdivision-method-comparison
+          path: subdivision_comparison/
+          retention-days: 7
