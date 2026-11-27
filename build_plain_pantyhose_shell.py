@@ -90,6 +90,21 @@ boundary_bins={}
 for p in boundary_mids:
     band=round(float(p.z)//0.05*0.05,2)
     boundary_bins[band]=boundary_bins.get(band,0)+1
+from mathutils.kdtree import KDTree
+cross_component_nearest=[]
+for ca in range(len(components)):
+    for cb in range(ca+1,len(components)):
+        tree=KDTree(len(components[cb]))
+        for idx,vi in enumerate(components[cb]): tree.insert(mesh.vertices[vi].co,idx)
+        tree.balance()
+        best=(1e9,None,None); within={0.0005:0,0.001:0,0.002:0,0.005:0,0.01:0}
+        for va in components[ca]:
+            co=mesh.vertices[va].co
+            near,idx,dist=tree.find(co)
+            if dist<best[0]: best=(dist,va,components[cb][idx])
+            for threshold in within:
+                if dist<=threshold: within[threshold]+=1
+        cross_component_nearest.append((ca,cb,best[0],best[1],best[2],within))
 selected_by_material={}
 for p in body.data.polygons:
     if p.index in keep:
@@ -109,6 +124,8 @@ with open("candidate/build_report.txt","w") as f:
     f.write(f"Boundary edge vertical bands (0.05m): {sorted(boundary_bins.items())}\n")
     f.write(f"Boundary edge midpoint bounds XYZ: min={[min(p[k] for p in boundary_mids) for k in range(3)] if boundary_mids else None} max={[max(p[k] for p in boundary_mids) for k in range(3)] if boundary_mids else None}\n")
     f.write(f"Edges with more than two adjacent faces: {len(overfull)}; samples={overfull[:10]}\n")
+    f.write("Nearest cross-component vertex pairs (distance, vertex IDs, counts within thresholds):\n")
+    for item in cross_component_nearest: f.write(str(item)+"\n")
     f.write("Selected faces by material: "+", ".join(f"{k}={v}" for k,v in sorted(selected_by_material.items()))+"\n")
     f.write("Selected regions: Hips, Legs, Feet, and lower Torso faces with centroid Z <= 1.18m.\n")
     f.write("Outward offset: 1.5mm; Solidify preview thickness: 0.35mm.\n")
