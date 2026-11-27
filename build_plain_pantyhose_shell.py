@@ -101,3 +101,4 @@ camd.type='ORTHO'; camd.ortho_scale=2.7; scene.camera=cam
 scene.render.filepath=os.path.abspath("candidate/front_preview.png")
 bpy.ops.render.render(write_still=True)
 print("SHELL_BUILD",len(keep),len(mesh.vertices),len(mesh.polygons))
+print("TOPOLOGY_AUDIT\\n"+open("candidate/build_report.txt").read())
