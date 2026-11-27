@@ -55,6 +55,28 @@ solid.offset=0
 bpy.ops.object.select_all(action='DESELECT')
 shell.select_set(True); bpy.context.view_layer.objects.active=shell
 bpy.ops.wm.obj_export(filepath=os.path.abspath("candidate/PlainPantyhoseShell_CANDIDATE.obj"),export_selected_objects=True)
+# Topology audit: boundary edges are expected only at garment openings; internal seams are not.
+edge_face_counts = [sum(1 for p in mesh.polygons if e.vertices[0] in p.vertices and e.vertices[1] in p.vertices) for e in mesh.edges]
+boundary_edges = sum(1 for n in edge_face_counts if n == 1)
+nonmanifold_edges = sum(1 for n in edge_face_counts if n != 2)
+adj = [[] for _ in mesh.vertices]
+for e in mesh.edges:
+    a,b = e.vertices
+    adj[a].append(b); adj[b].append(a)
+seen=set(); components=[]
+for start in range(len(adj)):
+    if start in seen or not adj[start]: continue
+    stack=[start]; seen.add(start); count=0
+    while stack:
+        v=stack.pop(); count+=1
+        for n in adj[v]:
+            if n not in seen: seen.add(n); stack.append(n)
+    components.append(count)
+selected_by_material={}
+for p in body.data.polygons:
+    if p.index in keep:
+        mn=names[p.material_index] if p.material_index<len(names) else "<none>"
+        selected_by_material[mn]=selected_by_material.get(mn,0)+1
 # Report geometry and material selection for audit.
 with open("candidate/build_report.txt","w") as f:
     f.write("Prototype only; not a VaM .var.\n")
