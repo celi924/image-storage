@@ -22,7 +22,7 @@ jobs:
       - name: Test Blender Mask Extract API
         run: |
           blender -b -noaudio --python-exit-code 1 --python test_mask_extract_api.py
-      - name: Render orthographic inspection views
+      - name: Build full-body Mask Extract prototype\n        run: |\n          blender -b -noaudio --python-exit-code 1 --python build_mask_extract_prototype.py\n          cat candidate_mask_extract/report.json\n      - name: Render orthographic inspection views
         run: |
           blender -b -noaudio --python-exit-code 1 --python build_plain_pantyhose_shell.py
           echo "===== TOPOLOGY REPORT ====="
@@ -31,7 +31,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: custom-body-inspection-views
-          path: candidate/
+          path: |\n            candidate/\n            candidate_mask_extract/
           retention-days: 7
 
 # rerun after inspection script commit
