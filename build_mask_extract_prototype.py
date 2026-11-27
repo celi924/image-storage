@@ -10,6 +10,28 @@ for o in meshes[1:]:
     o.select_set(True); body.select_set(True); bpy.ops.object.join()
 body=bpy.context.object
 body.name="G2F_FullBody_Reference"
+# Remove only exact duplicate polygons created by OBJ material-boundary overlap.
+# Keep every unique body polygon and every anatomical region intact.
+import bmesh
+def remove_exact_duplicate_faces(obj):
+    bm=bmesh.new()
+    bm.from_mesh(obj.data)
+    seen={}
+    duplicates=[]
+    for f in bm.faces:
+        key=tuple(sorted(v.index for v in f.verts))
+        if key in seen:
+            duplicates.append(f)
+        else:
+            seen[key]=f
+    if duplicates:
+        bmesh.ops.delete(bm,geom=duplicates,context='FACES')
+    bmesh.ops.recalc_face_normals(bm,faces=bm.faces)
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+    return len(duplicates)
+duplicate_faces_removed=remove_exact_duplicate_faces(body)
 # Preserve source mesh and create a separate dense working copy.
 work=body.copy(); work.data=body.data.copy(); bpy.context.collection.objects.link(work)
 work.name="Pantyhose_MaskExtract_Work"
