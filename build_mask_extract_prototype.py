@@ -14,8 +14,11 @@ body.name="G2F_FullBody_Reference"
 work=body.copy(); work.data=body.data.copy(); bpy.context.collection.objects.link(work)
 work.name="Pantyhose_MaskExtract_Work"
 bpy.ops.object.select_all(action="DESELECT"); work.select_set(True); bpy.context.view_layer.objects.active=work
-# Subdivide once for a more continuous extracted boundary while keeping this test tractable.
+# Weld coincident OBJ vertices across material seams before subdivision.
 bpy.ops.object.mode_set(mode="EDIT")
+bpy.ops.mesh.select_all(action="SELECT")
+bpy.ops.mesh.remove_doubles(threshold=0.0001)
+# Subdivide once for a more continuous extracted boundary while keeping this test tractable.
 bpy.ops.mesh.select_all(action="SELECT")
 bpy.ops.mesh.subdivide(number_cuts=1,smoothness=0.0)
 bpy.ops.object.mode_set(mode="OBJECT")
