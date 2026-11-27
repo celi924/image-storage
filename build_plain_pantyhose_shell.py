@@ -65,15 +65,31 @@ adj = [[] for _ in mesh.vertices]
 for e in mesh.edges:
     a,b = e.vertices
     adj[a].append(b); adj[b].append(a)
-seen=set(); components=[]
+seen=set(); components=[]; component_id=[-1]*len(adj)
 for start in range(len(adj)):
     if start in seen or not adj[start]: continue
-    stack=[start]; seen.add(start); count=0
+    stack=[start]; seen.add(start); count=0; members=[]; cid=len(components)
     while stack:
-        v=stack.pop(); count+=1
+        v=stack.pop(); count+=1; members.append(v); component_id[v]=cid
         for n in adj[v]:
             if n not in seen: seen.add(n); stack.append(n)
-    components.append(count)
+    components.append(members)
+component_reports=[]
+for cid,members in enumerate(components):
+    coords=[mesh.vertices[i].co for i in members]
+    mins=[min(v[k] for v in coords) for k in range(3)]
+    maxs=[max(v[k] for v in coords) for k in range(3)]
+    component_reports.append((cid,len(members),mins,maxs))
+boundary_mids=[]; overfull=[]
+for ei,e in enumerate(mesh.edges):
+    n=edge_face_counts[ei]
+    a,b=(mesh.vertices[i].co for i in e.vertices)
+    if n==1: boundary_mids.append((a+b)*0.5)
+    elif n>2: overfull.append((ei,n,tuple(a),tuple(b)))
+boundary_bins={}
+for p in boundary_mids:
+    band=round(float(p.z)//0.05*0.05,2)
+    boundary_bins[band]=boundary_bins.get(band,0)+1
 selected_by_material={}
 for p in body.data.polygons:
     if p.index in keep:
@@ -87,7 +103,12 @@ with open("candidate/build_report.txt","w") as f:
     f.write(f"Shell vertices: {len(mesh.vertices)}\nShell faces: {len(mesh.polygons)}\n")
     f.write(f"Boundary edges (one adjacent face): {boundary_edges}\n")
     f.write(f"Nonmanifold edges (not exactly two adjacent faces): {nonmanifold_edges}\n")
-    f.write(f"Connected components: {len(components)}; component vertex counts: {sorted(components, reverse=True)}\n")
+    f.write(f"Connected components: {len(components)}; component vertex counts: {sorted([len(c) for c in components], reverse=True)}\n")
+    for cid,count,mins,maxs in component_reports:
+        f.write(f"Component {cid}: vertices={count}; bounds XYZ min={mins} max={maxs}\n")
+    f.write(f"Boundary edge vertical bands (0.05m): {sorted(boundary_bins.items())}\n")
+    f.write(f"Boundary edge midpoint bounds XYZ: min={[min(p[k] for p in boundary_mids) for k in range(3)] if boundary_mids else None} max={[max(p[k] for p in boundary_mids) for k in range(3)] if boundary_mids else None}\n")
+    f.write(f"Edges with more than two adjacent faces: {len(overfull)}; samples={overfull[:10]}\n")
     f.write("Selected faces by material: "+", ".join(f"{k}={v}" for k,v in sorted(selected_by_material.items()))+"\n")
     f.write("Selected regions: Hips, Legs, Feet, and lower Torso faces with centroid Z <= 1.18m.\n")
     f.write("Outward offset: 1.5mm; Solidify preview thickness: 0.35mm.\n")
