@@ -219,3 +219,49 @@ render_view("crotch_closeup",(0,-1,0),(0,0,0.79),0.72,1100,900)
 render_view("waist_hip_closeup",(0,-1,0),(0,0,1.10),0.72,1100,900)
 print("SHELL_BUILD",len(keep),len(mesh.vertices),len(mesh.polygons))
 print("TOPOLOGY_AUDIT\\n"+open("candidate/build_report.txt").read())
+
+# Detailed boundary-loop audit: ordered coordinates and local topology around openings.
+with open("candidate/build_report.txt","a") as f:
+    f.write("\\nDetailed boundary loop diagnostics (ordered XYZ in meters):\\n")
+    for gi,group in enumerate(boundary_groups):
+        verts_set=set()
+        # Recover the connected boundary component by bounds and vertex count.
+        coords_group=[mesh.vertices[i].co for i in range(len(mesh.vertices)) if
+            group[3][0]-1e-4 <= mesh.vertices[i].co.x <= group[4][0]+1e-4 and
+            group[3][1]-1e-4 <= mesh.vertices[i].co.y <= group[4][1]+1e-4 and
+            group[3][2]-1e-4 <= mesh.vertices[i].co.z <= group[4][2]+1e-4]
+        candidates=set()
+        for i,co in enumerate(mesh.vertices):
+            if (group[3][0]-1e-4 <= co.co.x <= group[4][0]+1e-4 and
+                group[3][1]-1e-4 <= co.co.y <= group[4][1]+1e-4 and
+                group[3][2]-1e-4 <= co.co.z <= group[4][2]+1e-4):
+                candidates.add(i)
+        # Restrict to boundary vertices in this component.
+        todo=[next(iter(candidates & set(boundary_adj)))] if candidates & set(boundary_adj) else []
+        while todo:
+            vi=todo.pop()
+            if vi in verts_set: continue
+            verts_set.add(vi)
+            todo.extend(n for n in boundary_adj.get(vi,[]) if n not in verts_set)
+        degrees={v:len(boundary_adj.get(v,[])) for v in verts_set}
+        f.write(f"Loop {gi}: degree histogram={{{{d:sum(1 for x in degrees.values() if x==d) for d in sorted(set(degrees.values()))}}}}; vertices={len(verts_set)}\\n")
+        if verts_set and all(degrees[v]==2 for v in verts_set):
+            start=min(verts_set); ordered=[start]; prev=None; cur=start
+            while True:
+                opts=[n for n in boundary_adj[cur] if n!=prev]
+                nxt=opts[0] if opts else None
+                if nxt is None or nxt==start: break
+                if nxt in ordered: break
+                ordered.append(nxt); prev,cur=cur,nxt
+            stride=max(1,len(ordered)//24)
+            f.write("  ordered samples: "+str([(round(float(mesh.vertices[v].co.x),5),round(float(mesh.vertices[v].co.y),5),round(float(mesh.vertices[v].co.z),5)) for v in ordered[::stride]])+"\\n")
+        # Normals of faces touching the boundary component.
+        adjacent_faces=set()
+        for e in mesh.edges:
+            if e.vertices[0] in verts_set or e.vertices[1] in verts_set:
+                for p in mesh.polygons:
+                    if e.key in [tuple(sorted((p.vertices[j],p.vertices[(j+1)%len(p.vertices)]))) for j in range(len(p.vertices))]:
+                        adjacent_faces.add(p.index)
+        if adjacent_faces:
+            nz=[float(mesh.polygons[i].normal.z) for i in adjacent_faces]
+            f.write(f"  adjacent face normal Z range=({min(nz):.4f},{max(nz):.4f}), mean={sum(nz)/len(nz):.4f}, face_count={len(adjacent_faces)}\\n")
