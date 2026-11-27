@@ -41,3 +41,5 @@ jobs:
 # refresh full-body framing
 
 # rerender shell with studio floor disabled
+
+# rerun after preview script syntax fix
