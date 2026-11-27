@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/render-custom-body.yml"
       - "build_plain_pantyhose_shell.py"
+      - "build_mask_extract_prototype.py"
   workflow_dispatch:
 
 permissions:
