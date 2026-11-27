@@ -56,7 +56,9 @@ bpy.ops.object.select_all(action='DESELECT')
 shell.select_set(True); bpy.context.view_layer.objects.active=shell
 bpy.ops.wm.obj_export(filepath=os.path.abspath("candidate/PlainPantyhoseShell_CANDIDATE.obj"),export_selected_objects=True)
 # Topology audit: boundary edges are expected only at garment openings; internal seams are not.
-edge_face_counts = [sum(1 for p in mesh.polygons if e.vertices[0] in p.vertices and e.vertices[1] in p.vertices) for e in mesh.edges]
+edge_face_counts = [0] * len(mesh.edges)
+for loop in mesh.loops:
+    edge_face_counts[loop.edge_index] += 1
 boundary_edges = sum(1 for n in edge_face_counts if n == 1)
 nonmanifold_edges = sum(1 for n in edge_face_counts if n != 2)
 adj = [[] for _ in mesh.vertices]
