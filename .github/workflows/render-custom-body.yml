@@ -17,7 +17,7 @@ jobs:
       - name: Install Blender
         run: |
           sudo apt-get update
-          sudo apt-get install -y blender
+          sudo apt-get install -y blender libegl1 libgl1-mesa-dri libxkbcommon0
       - name: Render orthographic inspection views
         run: |
           blender -b -noaudio --python-exit-code 1 --python render_body.py
@@ -31,3 +31,5 @@ jobs:
 # rerun after inspection script commit
 
 # rerun with Blender 5 compatible workbench renderer
+
+# provide headless software EGL libraries
