@@ -224,44 +224,41 @@ print("TOPOLOGY_AUDIT\\n"+open("candidate/build_report.txt").read())
 with open("candidate/build_report.txt","a") as f:
     f.write("\\nDetailed boundary loop diagnostics (ordered XYZ in meters):\\n")
     for gi,group in enumerate(boundary_groups):
-        verts_set=set()
-        # Recover the connected boundary component by bounds and vertex count.
-        coords_group=[mesh.vertices[i].co for i in range(len(mesh.vertices)) if
-            group[3][0]-1e-4 <= mesh.vertices[i].co.x <= group[4][0]+1e-4 and
-            group[3][1]-1e-4 <= mesh.vertices[i].co.y <= group[4][1]+1e-4 and
-            group[3][2]-1e-4 <= mesh.vertices[i].co.z <= group[4][2]+1e-4]
         candidates=set()
-        for i,co in enumerate(mesh.vertices):
-            if (group[3][0]-1e-4 <= co.co.x <= group[4][0]+1e-4 and
-                group[3][1]-1e-4 <= co.co.y <= group[4][1]+1e-4 and
-                group[3][2]-1e-4 <= co.co.z <= group[4][2]+1e-4):
+        for i,vert in enumerate(mesh.vertices):
+            co=vert.co
+            if (group[3][0]-1e-4 <= co.x <= group[4][0]+1e-4 and
+                group[3][1]-1e-4 <= co.y <= group[4][1]+1e-4 and
+                group[3][2]-1e-4 <= co.z <= group[4][2]+1e-4 and i in boundary_adj):
                 candidates.add(i)
-        # Restrict to boundary vertices in this component.
-        todo=[next(iter(candidates & set(boundary_adj)))] if candidates & set(boundary_adj) else []
+        verts_set=set()
+        todo=[next(iter(candidates))] if candidates else []
         while todo:
             vi=todo.pop()
             if vi in verts_set: continue
             verts_set.add(vi)
             todo.extend(n for n in boundary_adj.get(vi,[]) if n not in verts_set)
         degrees={v:len(boundary_adj.get(v,[])) for v in verts_set}
-        f.write(f"Loop {gi}: degree histogram={{{{d:sum(1 for x in degrees.values() if x==d) for d in sorted(set(degrees.values()))}}}}; vertices={len(verts_set)}\\n")
+        histogram={d:sum(1 for x in degrees.values() if x==d) for d in sorted(set(degrees.values()))}
+        f.write(f"Loop {gi}: degree histogram={histogram}; vertices={len(verts_set)}\\n")
         if verts_set and all(degrees[v]==2 for v in verts_set):
             start=min(verts_set); ordered=[start]; prev=None; cur=start
             while True:
                 opts=[n for n in boundary_adj[cur] if n!=prev]
                 nxt=opts[0] if opts else None
-                if nxt is None or nxt==start: break
-                if nxt in ordered: break
+                if nxt is None or nxt==start or nxt in ordered: break
                 ordered.append(nxt); prev,cur=cur,nxt
             stride=max(1,len(ordered)//24)
-            f.write("  ordered samples: "+str([(round(float(mesh.vertices[v].co.x),5),round(float(mesh.vertices[v].co.y),5),round(float(mesh.vertices[v].co.z),5)) for v in ordered[::stride]])+"\\n")
-        # Normals of faces touching the boundary component.
+            samples=[tuple(round(float(mesh.vertices[v].co[k]),5) for k in range(3)) for v in ordered[::stride]]
+            f.write("  ordered XYZ samples: "+str(samples)+"\\n")
+        edge_keys=set(tuple(sorted(e.vertices)) for e in mesh.edges)
         adjacent_faces=set()
-        for e in mesh.edges:
-            if e.vertices[0] in verts_set or e.vertices[1] in verts_set:
-                for p in mesh.polygons:
-                    if e.key in [tuple(sorted((p.vertices[j],p.vertices[(j+1)%len(p.vertices)]))) for j in range(len(p.vertices))]:
-                        adjacent_faces.add(p.index)
+        for p in mesh.polygons:
+            pv=list(p.vertices)
+            if any(tuple(sorted((pv[j],pv[(j+1)%len(pv)]))) in edge_keys and
+                   pv[j] in verts_set and pv[(j+1)%len(pv)] in verts_set
+                   for j in range(len(pv))):
+                adjacent_faces.add(p.index)
         if adjacent_faces:
             nz=[float(mesh.polygons[i].normal.z) for i in adjacent_faces]
             f.write(f"  adjacent face normal Z range=({min(nz):.4f},{max(nz):.4f}), mean={sum(nz)/len(nz):.4f}, face_count={len(adjacent_faces)}\\n")
