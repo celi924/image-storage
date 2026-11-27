@@ -85,6 +85,10 @@ with open("candidate/build_report.txt","w") as f:
     f.write("Selected source material names: "+", ".join(names)+"\n")
     f.write(f"Selected source faces: {len(keep)}\n")
     f.write(f"Shell vertices: {len(mesh.vertices)}\nShell faces: {len(mesh.polygons)}\n")
+    f.write(f"Boundary edges (one adjacent face): {boundary_edges}\n")
+    f.write(f"Nonmanifold edges (not exactly two adjacent faces): {nonmanifold_edges}\n")
+    f.write(f"Connected components: {len(components)}; component vertex counts: {sorted(components, reverse=True)}\n")
+    f.write("Selected faces by material: "+", ".join(f"{k}={v}" for k,v in sorted(selected_by_material.items()))+"\n")
     f.write("Selected regions: Hips, Legs, Feet, and lower Torso faces with centroid Z <= 1.18m.\n")
     f.write("Outward offset: 1.5mm; Solidify preview thickness: 0.35mm.\n")
 # Render frontal fitting preview, full body frame.
