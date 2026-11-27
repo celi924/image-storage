@@ -262,3 +262,32 @@ with open("candidate/build_report.txt","a") as f:
         if adjacent_faces:
             nz=[float(mesh.polygons[i].normal.z) for i in adjacent_faces]
             f.write(f"  adjacent face normal Z range=({min(nz):.4f},{max(nz):.4f}), mean={sum(nz)/len(nz):.4f}, face_count={len(adjacent_faces)}\\n")
+
+# Inspect original body faces adjacent to the crotch boundary before attempting any patch.
+with open("candidate/build_report.txt","a") as f:
+    f.write("\\nUnselected source faces nearest to crotch boundary (material, centroid XYZ, distance):\\n")
+    # Use the lowest-Z boundary loop as the crotch/perineal opening, not the waist loop.
+    crotch_group=boundary_groups[0]
+    crotch_ids=set()
+    for i,vert in enumerate(mesh.vertices):
+        co=vert.co
+        if (crotch_group[3][0]-1e-4 <= co.x <= crotch_group[4][0]+1e-4 and
+            crotch_group[3][1]-1e-4 <= co.y <= crotch_group[4][1]+1e-4 and
+            crotch_group[3][2]-1e-4 <= co.z <= crotch_group[4][2]+1e-4 and i in boundary_adj):
+            todo=[i]
+            while todo:
+                vi=todo.pop()
+                if vi in crotch_ids: continue
+                crotch_ids.add(vi)
+                todo.extend(n for n in boundary_adj.get(vi,[]) if n not in crotch_ids)
+    edge_samples=[mesh.vertices[i].co.copy() for i in crotch_ids]
+    nearby=[]
+    for poly in body.data.polygons:
+        if poly.index in keep: continue
+        center=sum((body.data.vertices[i].co for i in poly.vertices),Vector())/len(poly.vertices)
+        dist=min((center-v).length for v in edge_samples)
+        if dist<0.025:
+            mn=names[poly.material_index] if poly.material_index<len(names) else "<none>"
+            nearby.append((dist,poly.index,mn,tuple(round(float(center[k]),5) for k in range(3))))
+    nearby.sort(key=lambda x:x[0])
+    for item in nearby[:80]: f.write(str(item)+"\\n")
