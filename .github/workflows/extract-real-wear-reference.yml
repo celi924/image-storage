@@ -1,0 +1,25 @@
+name: Extract real-wear reference photos
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ScreenShot_2026-11-26_211016_216.7z'
+      - '.github/workflows/extract-real-wear-reference.yml'
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install 7zip
+        run: sudo apt-get update && sudo apt-get install -y p7zip-full
+      - name: Extract archive
+        run: |
+          mkdir -p extracted
+          7z x ScreenShot_2026-11-26_211016_216.7z -oextracted
+          find extracted -type f -printf '%p %s bytes\n'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: real-wear-reference-photos
+          path: extracted/
+          if-no-files-found: error
+          retention-days: 7
