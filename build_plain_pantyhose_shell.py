@@ -117,7 +117,8 @@ for p in body.data.polygons:
 with open("candidate/build_report.txt","w") as f:
     f.write("Prototype only; not a VaM .var.\n")
     f.write("Selected source material names: "+", ".join(names)+"\n")
-    f.write(f"Selected source faces: {len(keep)}\n")    f.write(f"Welded coincident vertices (0.02mm tolerance): {welded_count}\n")
+    f.write(f"Selected source faces: {len(keep)}\n")
+    f.write(f"Welded coincident vertices (0.02mm tolerance): {welded_count}\n")
     f.write(f"Shell vertices: {len(mesh.vertices)}\nShell faces: {len(mesh.polygons)}\n")
     f.write(f"Boundary edges (one adjacent face): {boundary_edges}\n")
     f.write(f"Nonmanifold edges (not exactly two adjacent faces): {nonmanifold_edges}\n")
