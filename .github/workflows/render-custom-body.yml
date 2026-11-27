@@ -35,3 +35,5 @@ jobs:
 # provide headless software EGL libraries
 
 # rerender with full-height camera framing
+
+# rerender using imported Z-up coordinate system
