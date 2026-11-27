@@ -39,3 +39,5 @@ jobs:
 # rerender using imported Z-up coordinate system
 
 # refresh full-body framing
+
+# rerender shell with studio floor disabled
