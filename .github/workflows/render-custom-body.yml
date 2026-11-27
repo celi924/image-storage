@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - ".github/workflows/render-custom-body.yml"
+      - "build_plain_pantyhose_shell.py"
   workflow_dispatch:
 
 permissions:
