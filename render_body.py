@@ -55,7 +55,7 @@ def render_view(label, direction):
     cam.location=center+Vector(direction)*height*2.5
     aim(cam,center)
     cam_data.type='ORTHO'
-    cam_data.ortho_scale=height*1.12
+    cam_data.ortho_scale=height*(scene.render.resolution_x/scene.render.resolution_y)*1.12
     scene.camera=cam
     scene.render.filepath=os.path.abspath("inspection/"+label+".png")
     bpy.ops.render.render(write_still=True)
