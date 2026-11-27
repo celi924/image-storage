@@ -31,8 +31,9 @@ for f in faces:
         bm.faces.remove(f)
 bmesh.ops.delete(bm,geom=[v for v in bm.verts if not v.link_faces],context='VERTS')
 # Weld only coincident vertices across material boundaries; tolerance 0.02mm.
-weld_result=bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=0.00002)
-welded_count=len(weld_result.get("targetmap",{}))
+verts_before_weld=len(bm.verts)
+bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=0.00002)
+welded_count=verts_before_weld-len(bm.verts)
 bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces))
 # Slight outward offset for a first fitting shell; this is a fitting prototype, not a finished garment.
 for v in bm.verts:
