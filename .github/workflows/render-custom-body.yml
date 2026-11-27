@@ -20,12 +20,12 @@ jobs:
           sudo apt-get install -y blender libegl1 libgl1-mesa-dri libxkbcommon0
       - name: Render orthographic inspection views
         run: |
-          blender -b -noaudio --python-exit-code 1 --python render_body.py
+          blender -b -noaudio --python-exit-code 1 --python build_plain_pantyhose_shell.py
       - name: Upload inspection renders
         uses: actions/upload-artifact@v4
         with:
           name: custom-body-inspection-views
-          path: inspection/
+          path: candidate/
           retention-days: 7
 
 # rerun after inspection script commit
