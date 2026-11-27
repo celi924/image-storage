@@ -67,7 +67,11 @@ with open("candidate/build_report.txt","w") as f:
 scene=bpy.context.scene
 scene.render.engine='BLENDER_WORKBENCH'
 scene.display.shading.light='STUDIO'; scene.display.shading.color_type='MATERIAL'
-scene.display.shading.show_shadows=True; scene.display.shading.show_cavity=True\nscene.display.shading.show_floor=False\nscene.display.shading.show_axis_x=False\nscene.display.shading.show_axis_y=False
+scene.display.shading.show_shadows=True
+scene.display.shading.show_cavity=True
+scene.display.shading.show_floor=False
+scene.display.shading.show_axis_x=False
+scene.display.shading.show_axis_y=False
 scene.render.resolution_x=1100; scene.render.resolution_y=1500; scene.render.resolution_percentage=100
 camd=bpy.data.cameras.new("PreviewCamera"); cam=bpy.data.objects.new("PreviewCamera",camd); scene.collection.objects.link(cam)
 cam.location=Vector((0,-4,0.91)); target=Vector((0,0,0.91))
