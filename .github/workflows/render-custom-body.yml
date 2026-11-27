@@ -29,3 +29,5 @@ jobs:
           retention-days: 7
 
 # rerun after inspection script commit
+
+# rerun with Blender 5 compatible workbench renderer
