@@ -35,6 +35,30 @@ verts_before_weld=len(bm.verts)
 bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=0.00002)
 welded_count=verts_before_weld-len(bm.verts)
 bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces))
+# Close only tiny boundary loops at the toe tips (z < 30mm); preserve ankle/waist openings.
+boundary_edge_map={}
+for e in bm.edges:
+    if len(e.link_faces)==1:
+        for v in e.verts: boundary_edge_map.setdefault(v,[]).append(e)
+seen_boundary=set(); toe_cap_edges=[]
+for start in list(boundary_edge_map):
+    if start in seen_boundary: continue
+    stack=[start]; seen_boundary.add(start); group_verts=set(); group_edges=set()
+    while stack:
+        v=stack.pop(); group_verts.add(v)
+        for e in boundary_edge_map.get(v,[]):
+            group_edges.add(e)
+            other=e.other_vert(v)
+            if other not in seen_boundary:
+                seen_boundary.add(other); stack.append(other)
+    if len(group_verts)<=20 and max(v.co.z for v in group_verts)<0.03:
+        toe_cap_edges.extend(list(group_edges))
+toe_cap_edges=list(set(toe_cap_edges))
+toe_cap_faces=0
+if toe_cap_edges:
+    result=bmesh.ops.holes_fill(bm,edges=toe_cap_edges,sides=0)
+    toe_cap_faces=len(result.get("faces",[]))
+bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces))
 # Slight outward offset for a first fitting shell; this is a fitting prototype, not a finished garment.
 for v in bm.verts:
     if v.normal.length>0:
