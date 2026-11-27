@@ -23,10 +23,10 @@ corners=[body.matrix_world @ Vector(c) for c in body.bound_box]
 mins=Vector((min(v.x for v in corners),min(v.y for v in corners),min(v.z for v in corners)))
 maxs=Vector((max(v.x for v in corners),max(v.y for v in corners),max(v.z for v in corners)))
 center=(mins+maxs)*0.5
-height=maxs.y-mins.y
+height=maxs.z-mins.z
 # OBJ Y is vertical. Front/back are +/- Z.
 def aim(obj, target):
-    obj.rotation_euler=(Vector(target)-obj.location).to_track_quat('-Z','Y').to_euler()
+    obj.rotation_euler=(Vector(target)-obj.location).to_track_quat('-Z','Z').to_euler()
 
 scene=bpy.context.scene
 scene.render.engine='BLENDER_WORKBENCH'
@@ -61,7 +61,7 @@ def render_view(label, direction):
     bpy.ops.render.render(write_still=True)
     bpy.data.objects.remove(cam,do_unlink=True)
 
-render_view("front",(0,0,1))
-render_view("back",(0,0,-1))
+render_view("front",(0,-1,0))
+render_view("back",(0,1,0))
 render_view("side",(1,0,0))
 print("BODY_BOUNDS",tuple(mins),tuple(maxs),"HEIGHT",height,"MESH_OBJECTS",len(mesh_objects))
