@@ -22,6 +22,8 @@ jobs:
       - name: Render orthographic inspection views
         run: |
           blender -b -noaudio --python-exit-code 1 --python build_plain_pantyhose_shell.py
+          echo "===== TOPOLOGY REPORT ====="
+          cat candidate/build_report.txt
       - name: Upload inspection renders
         uses: actions/upload-artifact@v4
         with:
