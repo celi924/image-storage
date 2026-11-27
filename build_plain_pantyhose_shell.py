@@ -67,12 +67,12 @@ with open("candidate/build_report.txt","w") as f:
 scene=bpy.context.scene
 scene.render.engine='BLENDER_WORKBENCH'
 scene.display.shading.light='STUDIO'; scene.display.shading.color_type='MATERIAL'
-scene.display.shading.show_shadows=True; scene.display.shading.show_cavity=True
+scene.display.shading.show_shadows=True; scene.display.shading.show_cavity=True\nscene.display.shading.show_floor=False\nscene.display.shading.show_axis_x=False\nscene.display.shading.show_axis_y=False
 scene.render.resolution_x=1100; scene.render.resolution_y=1500; scene.render.resolution_percentage=100
 camd=bpy.data.cameras.new("PreviewCamera"); cam=bpy.data.objects.new("PreviewCamera",camd); scene.collection.objects.link(cam)
 cam.location=Vector((0,-4,0.91)); target=Vector((0,0,0.91))
 cam.rotation_euler=(target-cam.location).to_track_quat('-Z','Z').to_euler()
-camd.type='ORTHO'; camd.ortho_scale=2.15; scene.camera=cam
+camd.type='ORTHO'; camd.ortho_scale=2.7; scene.camera=cam
 scene.render.filepath=os.path.abspath("candidate/front_preview.png")
 bpy.ops.render.render(write_still=True)
 print("SHELL_BUILD",len(keep),len(mesh.vertices),len(mesh.polygons))
