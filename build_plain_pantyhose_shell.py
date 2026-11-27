@@ -30,6 +30,9 @@ for f in faces:
     if f.index not in keep:
         bm.faces.remove(f)
 bmesh.ops.delete(bm,geom=[v for v in bm.verts if not v.link_faces],context='VERTS')
+# Weld only coincident vertices across material boundaries; tolerance 0.02mm.
+weld_result=bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=0.00002)
+welded_count=len(weld_result.get("targetmap",{}))
 bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces))
 # Slight outward offset for a first fitting shell; this is a fitting prototype, not a finished garment.
 for v in bm.verts:
@@ -114,7 +117,7 @@ for p in body.data.polygons:
 with open("candidate/build_report.txt","w") as f:
     f.write("Prototype only; not a VaM .var.\n")
     f.write("Selected source material names: "+", ".join(names)+"\n")
-    f.write(f"Selected source faces: {len(keep)}\n")
+    f.write(f"Selected source faces: {len(keep)}\n")    f.write(f"Welded coincident vertices (0.02mm tolerance): {welded_count}\n")
     f.write(f"Shell vertices: {len(mesh.vertices)}\nShell faces: {len(mesh.polygons)}\n")
     f.write(f"Boundary edges (one adjacent face): {boundary_edges}\n")
     f.write(f"Nonmanifold edges (not exactly two adjacent faces): {nonmanifold_edges}\n")
