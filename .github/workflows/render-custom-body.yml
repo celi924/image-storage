@@ -1,0 +1,29 @@
+name: Render custom Genesis 2 body inspection
+
+on:
+  push:
+    paths:
+      - ".github/workflows/render-custom-body.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Blender
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y blender
+      - name: Render orthographic inspection views
+        run: |
+          blender -b -noaudio --python-exit-code 1 --python render_body.py
+      - name: Upload inspection renders
+        uses: actions/upload-artifact@v4
+        with:
+          name: custom-body-inspection-views
+          path: inspection/
+          retention-days: 7
