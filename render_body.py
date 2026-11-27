@@ -29,8 +29,11 @@ def aim(obj, target):
     obj.rotation_euler=(Vector(target)-obj.location).to_track_quat('-Z','Y').to_euler()
 
 scene=bpy.context.scene
-scene.render.engine='BLENDER_EEVEE_NEXT'
-scene.eevee.taa_render_samples=32
+scene.render.engine='BLENDER_WORKBENCH'
+scene.display.shading.light='STUDIO'
+scene.display.shading.color_type='MATERIAL'
+scene.display.shading.show_shadows=True
+scene.display.shading.show_cavity=True
 scene.render.resolution_x=1100
 scene.render.resolution_y=1500
 scene.render.resolution_percentage=100
@@ -54,18 +57,9 @@ def render_view(label, direction):
     cam_data.type='ORTHO'
     cam_data.ortho_scale=height*1.12
     scene.camera=cam
-    light_data=bpy.data.lights.new("Key","AREA")
-    light=bpy.data.objects.new("Key",light_data)
-    scene.collection.objects.link(light)
-    light.location=center+Vector((1.4,1.0,2.0))*height
-    light_data.energy=1800
-    light_data.shape='DISK'
-    light_data.size=height*1.1
-    aim(light,center)
     scene.render.filepath=os.path.abspath("inspection/"+label+".png")
     bpy.ops.render.render(write_still=True)
     bpy.data.objects.remove(cam,do_unlink=True)
-    bpy.data.objects.remove(light,do_unlink=True)
 
 render_view("front",(0,0,1))
 render_view("back",(0,0,-1))
