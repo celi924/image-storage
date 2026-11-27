@@ -22,6 +22,33 @@ for p in body.data.polygons:
         keep.add(p.index)
 if not keep:
     raise RuntimeError("No garment source faces selected; material names: "+repr(names))
+# Recover original skin polygons directly adjoining the crotch opening.
+# This is a separate fitting candidate: only defaultmat faces sharing a selected boundary edge
+# inside the crotch region are added; the waist opening and source body remain untouched.
+edge_users={}
+for poly in body.data.polygons:
+    vs=list(poly.vertices)
+    for j in range(len(vs)):
+        key=tuple(sorted((vs[j],vs[(j+1)%len(vs)])))
+        edge_users.setdefault(key,[]).append(poly.index)
+selected_edge_counts={}
+for pi in keep:
+    vs=list(body.data.polygons[pi].vertices)
+    for j in range(len(vs)):
+        key=tuple(sorted((vs[j],vs[(j+1)%len(vs)])))
+        selected_edge_counts[key]=selected_edge_counts.get(key,0)+1
+crotch_boundary_keys={k for k,n in selected_edge_counts.items() if n==1}
+crotch_patch_faces=set()
+for key in crotch_boundary_keys:
+    for pi in edge_users.get(key,[]):
+        if pi in keep: continue
+        poly=body.data.polygons[pi]
+        matname=names[poly.material_index] if poly.material_index<len(names) else ""
+        center=sum((body.data.vertices[i].co for i in poly.vertices),Vector())/len(poly.vertices)
+        if ("defaultmat" in matname and abs(center.x)<0.10 and
+            -0.13<center.y<0.11 and 0.89<center.z<1.08):
+            crotch_patch_faces.add(pi)
+keep.update(crotch_patch_faces)
 # Build a separate surface from the selected body polygons, leaving source mesh untouched.
 bm=bmesh.new()
 bm.from_mesh(body.data)
