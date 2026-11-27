@@ -108,7 +108,7 @@ bpy.ops.wm.obj_export(filepath=os.path.abspath("candidate_mask_extract/Pantyhose
 bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath("candidate_mask_extract/Pantyhose_MaskExtract_Prototype.blend"))
 report={
  "blender":bpy.app.version_string,
- "source_vertices":len(body.data.vertices),"source_faces":len(body.data.polygons),
+ "source_vertices":len(body.data.vertices),"source_faces":len(body.data.polygons),"duplicate_faces_removed":duplicate_faces_removed,
  "work_vertices_after_subdivide":len(work.data.vertices),
  "extracted_vertices":len(mesh.vertices),"extracted_faces":len(mesh.polygons),
  "boundary_edges":boundary,"nonmanifold_edges":nonmanifold,
