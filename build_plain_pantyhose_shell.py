@@ -134,18 +134,64 @@ with open("candidate/build_report.txt","w") as f:
     f.write("Selected faces by material: "+", ".join(f"{k}={v}" for k,v in sorted(selected_by_material.items()))+"\n")
     f.write("Selected regions: Hips, Legs, Feet, and lower Torso faces with centroid Z <= 1.18m.\n")
     f.write("Outward offset: 1.5mm; Solidify preview thickness: 0.35mm.\n")
-# Render frontal fitting preview, full body frame.
+# Boundary-edge connected groups: identify each opening and any accidental local holes.
+boundary_adj={}
+boundary_edge_records=[]
+for ei,e in enumerate(mesh.edges):
+    if edge_face_counts[ei] != 1: continue
+    a,b=e.vertices
+    boundary_adj.setdefault(a,[]).append(b)
+    boundary_adj.setdefault(b,[]).append(a)
+    boundary_edge_records.append((a,b))
+boundary_seen=set(); boundary_groups=[]
+for start in boundary_adj:
+    if start in boundary_seen: continue
+    stack=[start]; boundary_seen.add(start); verts_group=set(); edge_count=0
+    while stack:
+        v=stack.pop(); verts_group.add(v)
+        for n in boundary_adj[v]:
+            edge_key=tuple(sorted((v,n)))
+            if v<n: edge_count+=1
+            if n not in boundary_seen:
+                boundary_seen.add(n); stack.append(n)
+    coords=[mesh.vertices[v].co for v in verts_group]
+    mins=[min(float(v[k]) for v in coords) for k in range(3)]
+    maxs=[max(float(v[k]) for v in coords) for k in range(3)]
+    perimeter=sum((mesh.vertices[a].co-mesh.vertices[b].co).length for a,b in boundary_edge_records if a in verts_group and b in verts_group)
+    boundary_groups.append((len(verts_group),edge_count,round(float(perimeter),5),[round(x,5) for x in mins],[round(x,5) for x in maxs]))
+boundary_groups.sort(key=lambda x:(x[4][2],x[0]))
+# Append boundary loop clusters to the audit report.
+with open("candidate/build_report.txt","a") as f:
+    f.write("\\nBoundary connected groups (vertices, edges, perimeter m, XYZ min, XYZ max):\\n")
+    for group in boundary_groups: f.write(str(group)+"\\n")
+
+# Render multiple orthographic views of the shell; source body remains untouched.
 scene=bpy.context.scene
 scene.render.engine='BLENDER_WORKBENCH'
 scene.display.shading.light='STUDIO'; scene.display.shading.color_type='MATERIAL'
 scene.display.shading.show_shadows=True
 scene.display.shading.show_cavity=True
-scene.render.resolution_x=1100; scene.render.resolution_y=1500; scene.render.resolution_percentage=100
-camd=bpy.data.cameras.new("PreviewCamera"); cam=bpy.data.objects.new("PreviewCamera",camd); scene.collection.objects.link(cam)
-cam.location=Vector((0,-4,0.91)); target=Vector((0,0,0.91))
-cam.rotation_euler=(target-cam.location).to_track_quat('-Z','Z').to_euler()
-camd.type='ORTHO'; camd.ortho_scale=2.7; scene.camera=cam
-scene.render.filepath=os.path.abspath("candidate/front_preview.png")
-bpy.ops.render.render(write_still=True)
+scene.display.shading.show_specular_highlight=True
+scene.render.resolution_percentage=100
+camd=bpy.data.cameras.new("InspectionCamera")
+cam=bpy.data.objects.new("InspectionCamera",camd)
+scene.collection.objects.link(cam)
+camd.type='ORTHO'
+scene.camera=cam
+def render_view(name, direction, target_xyz, ortho, width=1100, height=1500):
+    target=Vector(target_xyz)
+    cam.location=target+Vector(direction).normalized()*4.0
+    cam.rotation_euler=(target-cam.location).to_track_quat('-Z','Z').to_euler()
+    camd.ortho_scale=ortho
+    scene.render.resolution_x=width
+    scene.render.resolution_y=height
+    scene.render.filepath=os.path.abspath("candidate/"+name+".png")
+    bpy.ops.render.render(write_still=True)
+render_view("front_preview",(0,-1,0),(0,0,0.91),2.7)
+render_view("back_preview",(0,1,0),(0,0,0.91),2.7)
+render_view("left_side_preview",(-1,0,0),(0,0,0.91),2.7,900,1500)
+render_view("right_side_preview",(1,0,0),(0,0,0.91),2.7,900,1500)
+render_view("crotch_closeup",(0,-1,0),(0,0,0.79),0.72,1100,900)
+render_view("waist_hip_closeup",(0,-1,0),(0,0,1.10),0.72,1100,900)
 print("SHELL_BUILD",len(keep),len(mesh.vertices),len(mesh.polygons))
 print("TOPOLOGY_AUDIT\\n"+open("candidate/build_report.txt").read())
