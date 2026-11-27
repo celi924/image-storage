@@ -33,3 +33,5 @@ jobs:
 # rerun with Blender 5 compatible workbench renderer
 
 # provide headless software EGL libraries
+
+# rerender with full-height camera framing
