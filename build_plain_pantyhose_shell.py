@@ -61,7 +61,7 @@ for poly in body.data.polygons:
     center=sum((body.data.vertices[i].co for i in poly.vertices),Vector())/len(poly.vertices)
     if not (abs(center.x)<0.11 and -0.14<center.y<0.13 and 0.88<center.z<1.09): continue
     _,_,dist=tree.find(center)
-    if dist <= 0.010:
+    if dist <= 0.025:
         crotch_patch_faces.add(poly.index)
 keep.update(crotch_patch_faces)
 # Build a separate surface from the selected body polygons, leaving source mesh untouched.
