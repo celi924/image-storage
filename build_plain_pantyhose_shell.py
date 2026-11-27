@@ -22,32 +22,47 @@ for p in body.data.polygons:
         keep.add(p.index)
 if not keep:
     raise RuntimeError("No garment source faces selected; material names: "+repr(names))
-# Recover original skin polygons directly adjoining the crotch opening.
-# This is a separate fitting candidate: only defaultmat faces sharing a selected boundary edge
-# inside the crotch region are added; the waist opening and source body remain untouched.
-edge_users={}
+# Recover original skin polygons spatially adjoining the crotch opening.
+# OBJ material seams may duplicate vertex indices, so use a KDTree over the boundary coordinates.
+# Add only a narrow ring of original defaultmat skin faces in the crotch zone.
+from mathutils.kdtree import KDTree
+edge_use={}
 for poly in body.data.polygons:
     vs=list(poly.vertices)
     for j in range(len(vs)):
         key=tuple(sorted((vs[j],vs[(j+1)%len(vs)])))
-        edge_users.setdefault(key,[]).append(poly.index)
-selected_edge_counts={}
+        edge_use[key]=edge_use.get(key,0)+1
+selected_edges={}
 for pi in keep:
     vs=list(body.data.polygons[pi].vertices)
     for j in range(len(vs)):
         key=tuple(sorted((vs[j],vs[(j+1)%len(vs)])))
-        selected_edge_counts[key]=selected_edge_counts.get(key,0)+1
-crotch_boundary_keys={k for k,n in selected_edge_counts.items() if n==1}
+        selected_edges[key]=selected_edges.get(key,0)+1
+boundary_vertex_ids=set()
+for key,n in selected_edges.items():
+    if n==1:
+        boundary_vertex_ids.update(key)
+# Keep only the internal crotch/perineal loop; exclude the waist loop by its vertical range.
+crotch_boundary_coords=[]
+for vi in boundary_vertex_ids:
+    co=body.data.vertices[vi].co
+    if 0.89 < co.z < 1.08 and abs(co.x)<0.11 and -0.13<co.y<0.12:
+        crotch_boundary_coords.append(co.copy())
+if not crotch_boundary_coords:
+    raise RuntimeError("Could not locate crotch boundary coordinates")
+tree=KDTree(len(crotch_boundary_coords))
+for i,co in enumerate(crotch_boundary_coords): tree.insert(co,i)
+tree.balance()
 crotch_patch_faces=set()
-for key in crotch_boundary_keys:
-    for pi in edge_users.get(key,[]):
-        if pi in keep: continue
-        poly=body.data.polygons[pi]
-        matname=names[poly.material_index] if poly.material_index<len(names) else ""
-        center=sum((body.data.vertices[i].co for i in poly.vertices),Vector())/len(poly.vertices)
-        if ("defaultmat" in matname and abs(center.x)<0.10 and
-            -0.13<center.y<0.11 and 0.89<center.z<1.08):
-            crotch_patch_faces.add(pi)
+for poly in body.data.polygons:
+    if poly.index in keep: continue
+    matname=names[poly.material_index] if poly.material_index<len(names) else ""
+    if "defaultmat" not in matname: continue
+    center=sum((body.data.vertices[i].co for i in poly.vertices),Vector())/len(poly.vertices)
+    if not (abs(center.x)<0.11 and -0.14<center.y<0.13 and 0.88<center.z<1.09): continue
+    _,_,dist=tree.find(center)
+    if dist <= 0.010:
+        crotch_patch_faces.add(poly.index)
 keep.update(crotch_patch_faces)
 # Build a separate surface from the selected body polygons, leaving source mesh untouched.
 bm=bmesh.new()
