@@ -2,6 +2,9 @@ name: Export 408 remove-background PNG
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/export-408-removebg.yml"
 
 permissions:
   contents: read
