@@ -1,0 +1,37 @@
+name: Download original reference image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download original image from GitHub Raw
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/celi924/image-storage/main/149882008_p0.jpg" \
+            --output output/149882008_p0.jpg
+          test -s output/149882008_p0.jpg
+          file output/149882008_p0.jpg
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("output/149882008_p0.jpg")
+          data = p.read_bytes()
+          if not data.startswith(bytes.fromhex("FFD8FF")):
+              raise SystemExit("Downloaded file is not a valid JPEG")
+          print(f"Downloaded {p.name}: {len(data)} bytes")
+          PY
+      - name: Upload original image as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-reference-image
+          path: output/149882008_p0.jpg
+          if-no-files-found: error
+          retention-days: 7
