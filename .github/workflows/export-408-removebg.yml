@@ -1,0 +1,26 @@
+name: Export 408 remove-background PNG
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download source PNG
+        run: |
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/celi924/image-storage/main/ScreenShot_2026-11-26_210926_408-removebg-preview.png" \
+            --output 408-removebg-preview.png
+          file 408-removebg-preview.png
+          test -s 408-removebg-preview.png
+      - name: Upload PNG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 408-removebg-png
+          path: 408-removebg-preview.png
+          if-no-files-found: error
+          retention-days: 7
